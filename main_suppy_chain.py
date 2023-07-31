@@ -15,8 +15,9 @@ from help import (
     print_log_message,
     save_results,
 )
+from supply_chain.run_ampl import run_ampl
 from supply_chain.run_gurobipy import run_gurobi, run_fast_gurobi
-from supply_chain.run_gams import run_gams
+#from supply_chain.run_gams import run_gams
 from supply_chain.run_pyomo import run_pyomo, run_fast_pyomo
 from supply_chain.run_jump import run_julia
 
@@ -28,13 +29,14 @@ def run_experiment(
     np.random.seed(13)
 
     # create empty frames for results
+    df_ampl = create_data_frame()
     df_jump = create_data_frame()
     df_fast_jump = create_data_frame()
     df_pyomo = create_data_frame()
     df_fast_pyomo = create_data_frame()
     df_gurobi = create_data_frame()
     df_fast_gurobi = create_data_frame()
-    df_gams = create_data_frame()
+    #df_gams = create_data_frame()
 
     # define the x axis
     N = list(incremental_range(50, cardinality_of_i + 1, 50, 50))
@@ -73,6 +75,30 @@ def run_experiment(
         save_to_json(ikl_tuple, "IKL", f"_{n}", "supply_chain")
         save_to_json(ilm_tuple, "ILM", f"_{n}", "supply_chain")
         save_to_json_d(d_dict, "D", f"_{n}", "supply_chain")
+
+        # AMPL
+        if below_time_limit(df_ampl, time_limit):
+            rr = run_ampl(
+                I=I,
+                J=J,
+                K=K,
+                L=L,
+                M=M,
+                IK=ik_tuple,
+                IL=il_tuple,
+                IM=im_tuple,
+                IJK=ijk_tuple,
+                IKL=ikl_tuple,
+                ILM=ilm_tuple,
+                D=d_dict,
+                solve=solve,
+                repeats=repeats,
+                number=number,
+            )
+            df_ampl = process_results(rr, df_ampl)
+            print_log_message(
+                language="AMPL", n=n, df=df_ampl
+            )
 
         # GurobiPy
         if below_time_limit(df_gurobi, time_limit):
@@ -118,27 +144,27 @@ def run_experiment(
             print_log_message(language="Fast GurobiPy", n=n, df=df_fast_gurobi)
 
         # GAMS
-        if below_time_limit(df_gams, time_limit):
-            rr = run_gams(
-                I=I,
-                J=J,
-                K=K,
-                L=L,
-                M=M,
-                IK=ik_tuple,
-                IL=il_tuple,
-                IM=im_tuple,
-                IJK=ijk_tuple,
-                IKL=ikl_tuple,
-                ILM=ilm_tuple,
-                D=d_dict,
-                solve=solve,
-                N=n,
-                repeats=repeats,
-                number=number,
-            )
-            df_gams = process_results(rr, df_gams)
-            print_log_message(language="GAMS", n=n, df=df_gams)
+        #if below_time_limit(df_gams, time_limit):
+        #    rr = run_gams(
+        #        I=I,
+        #        J=J,
+        #        K=K,
+        #        L=L,
+        #        M=M,
+        #        IK=ik_tuple,
+        #        IL=il_tuple,
+        #        IM=im_tuple,
+        #        IJK=ijk_tuple,
+        #        IKL=ikl_tuple,
+        #        ILM=ilm_tuple,
+        #        D=d_dict,
+        #        solve=solve,
+        #        N=n,
+        #        repeats=repeats,
+        #        number=number,
+        #    )
+        #    df_gams = process_results(rr, df_gams)
+        #    print_log_message(language="GAMS", n=n, df=df_gams)
 
         # Pyomo
         if below_time_limit(df_pyomo, time_limit):
@@ -187,13 +213,14 @@ def run_experiment(
     # merge all results
     df = pd.concat(
         [
+            df_ampl,
             df_jump,
             df_fast_jump,
             df_pyomo,
             df_fast_pyomo,
             df_gurobi,
             df_fast_gurobi,
-            df_gams
+            #df_gams
         ]
     ).reset_index(drop=True)
 
